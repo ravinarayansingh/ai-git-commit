@@ -43,23 +43,14 @@
       {
         "command": "gitCommitAI.generate",
         "title": "AI: Generate Commit Message",
-        "icon": "$(sparkle)"
+        "icon": {
+          "light": "images/sparkle-light.svg",
+          "dark": "images/sparkle-dark.svg"
+        }
       },
       {
         "command": "gitCommitAI.setup",
         "title": "AI: Configure API & Model"
-      }
-    ],
-    "colors": [
-      {
-        "id": "gitCommitAI.iconColor",
-        "description": "Color of the AI Commit sparkle icon in the SCM toolbar",
-        "defaults": {
-          "dark": "#FFD700",
-          "light": "#E6A800",
-          "highContrast": "#FFD700",
-          "highContrastLight": "#E6A800"
-        }
       }
     ],
     "menus": {
