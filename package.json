@@ -29,7 +29,9 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "SCM Providers",
+    "AI",
+    "Machine Learning"
   ],
   "activationEvents": [
     "onStartupFinished"
