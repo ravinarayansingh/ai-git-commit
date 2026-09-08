@@ -70,10 +70,11 @@
           "group": "navigation"
         }
       ],
-      "scm/inputBox": [
+      "scm/resourceGroup/context": [
         {
           "command": "gitCommitAI.generate",
-          "when": "scmProvider == git"
+          "when": "scmProvider == git",
+          "group": "1_modification"
         }
       ]
     },
