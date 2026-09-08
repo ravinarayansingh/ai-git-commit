@@ -2,7 +2,7 @@
   "name": "ai-commit-message-generator",
   "displayName": "AI Git Commit Generator",
   "description": "Generate git commit messages from staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1b4b",
@@ -74,6 +74,31 @@
     "configuration": {
       "title": "AI Commit Message Generator",
       "properties": {
+        "gitCommitAI.provider": {
+          "type": "string",
+          "enum": [
+            "api",
+            "claude",
+            "codex"
+          ],
+          "enumDescriptions": [
+            "OpenAI-compatible HTTP endpoint (Ollama, vLLM, SGLang, LM Studio, OpenAI, …)",
+            "Claude Code CLI — uses your existing Claude login/subscription",
+            "Codex CLI — uses your existing ChatGPT/OpenAI login"
+          ],
+          "default": "api",
+          "description": "How commit messages are generated: an HTTP API endpoint or an installed agent CLI."
+        },
+        "gitCommitAI.claudePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Claude Code CLI binary. Leave empty to auto-detect (PATH and common install locations)."
+        },
+        "gitCommitAI.codexPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Codex CLI binary. Leave empty to auto-detect (PATH and common install locations)."
+        },
         "gitCommitAI.apiUrl": {
           "type": "string",
           "default": "http://localhost:11434/v1",

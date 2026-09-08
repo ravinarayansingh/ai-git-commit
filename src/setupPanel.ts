@@ -1,18 +1,26 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { API_KEY_SECRET } from './config';
+import { API_KEY_SECRET, Provider, getConfig } from './config';
+import { AgentInfo, detectAgent } from './agentProvider';
 
 interface ModelsResponse {
   data: Array<{ id: string }>;
 }
 
+interface AgentsInfo {
+  claude: AgentInfo;
+  codex: AgentInfo;
+}
+
 type WebviewMessage =
   | { type: 'ready' }
+  | { type: 'refreshAgents' }
   | { type: 'fetchModels'; url: string; apiKey: string }
-  | { type: 'save'; url: string; apiKey: string; keyDirty: boolean; model: string };
+  | { type: 'save'; provider: Provider; url: string; apiKey: string; keyDirty: boolean; model: string };
 
 type ExtensionMessage =
-  | { type: 'initialConfig'; url: string; hasApiKey: boolean; model: string }
+  | { type: 'initialConfig'; provider: Provider; url: string; hasApiKey: boolean; model: string; agents: AgentsInfo }
+  | { type: 'agentsDetected'; agents: AgentsInfo }
   | { type: 'modelsLoaded'; models: string[] }
   | { type: 'fetchError'; message: string };
 
@@ -46,12 +54,14 @@ export class SetupPanel {
       (msg: WebviewMessage) => {
         if (msg.type === 'ready') {
           this.sendInitialConfig().catch(() => undefined);
+        } else if (msg.type === 'refreshAgents') {
+          this.sendAgents().catch(() => undefined);
         } else if (msg.type === 'fetchModels') {
           this.onFetchModels(msg.url, msg.apiKey).catch((err) =>
             vscode.window.showErrorMessage(`Git Commit AI: ${(err as Error).message}`)
           );
         } else if (msg.type === 'save') {
-          this.onSave(msg.url, msg.apiKey, msg.keyDirty, msg.model).catch((err) =>
+          this.onSave(msg.provider, msg.url, msg.apiKey, msg.keyDirty, msg.model).catch((err) =>
             vscode.window.showErrorMessage(`Git Commit AI: failed to save configuration: ${(err as Error).message}`)
           );
         }
@@ -71,15 +81,28 @@ export class SetupPanel {
     );
   }
 
+  private async detectAgents(): Promise<AgentsInfo> {
+    const config = getConfig();
+    const [claude, codex] = await Promise.all([detectAgent('claude', config), detectAgent('codex', config)]);
+    return { claude, codex };
+  }
+
+  private async sendAgents(): Promise<void> {
+    const msg: ExtensionMessage = { type: 'agentsDetected', agents: await this.detectAgents() };
+    await this.panel.webview.postMessage(msg);
+  }
+
   /** Pre-fill the form once the webview signals it is listening. */
   private async sendInitialConfig(): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('gitCommitAI');
     const savedKey = await this.context.secrets.get(API_KEY_SECRET);
     const init: ExtensionMessage = {
       type: 'initialConfig',
+      provider: cfg.get<Provider>('provider', 'api'),
       url: cfg.get<string>('apiUrl', ''),
       hasApiKey: Boolean(savedKey),
       model: cfg.get<string>('model', ''),
+      agents: await this.detectAgents(),
     };
     await this.panel.webview.postMessage(init);
   }
@@ -112,19 +135,23 @@ export class SetupPanel {
     }
   }
 
-  private async onSave(url: string, apiKey: string, keyDirty: boolean, model: string): Promise<void> {
+  private async onSave(provider: Provider, url: string, apiKey: string, keyDirty: boolean, model: string): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('gitCommitAI');
-    await cfg.update('apiUrl', url.trim().replace(/\/+$/, ''), vscode.ConfigurationTarget.Global);
-    await cfg.update('model', model, vscode.ConfigurationTarget.Global);
-    if (keyDirty) {
-      if (apiKey) {
-        await this.context.secrets.store(API_KEY_SECRET, apiKey);
-      } else {
-        await this.context.secrets.delete(API_KEY_SECRET);
+    await cfg.update('provider', provider, vscode.ConfigurationTarget.Global);
+    if (provider === 'api') {
+      await cfg.update('apiUrl', url.trim().replace(/\/+$/, ''), vscode.ConfigurationTarget.Global);
+      await cfg.update('model', model, vscode.ConfigurationTarget.Global);
+      if (keyDirty) {
+        if (apiKey) {
+          await this.context.secrets.store(API_KEY_SECRET, apiKey);
+        } else {
+          await this.context.secrets.delete(API_KEY_SECRET);
+        }
       }
     }
     await this.context.globalState.update('setupComplete', true);
-    vscode.window.showInformationMessage(`AI Commit ready — using model "${model}"`);
+    const what = provider === 'api' ? `model "${model}"` : provider === 'claude' ? 'Claude Code' : 'Codex CLI';
+    vscode.window.showInformationMessage(`AI Commit ready — using ${what}`);
     this.panel.dispose();
   }
 
@@ -300,6 +327,47 @@ export class SetupPanel {
   @keyframes spin { to { transform: rotate(360deg); } }
 
   #model-field { display: none; }
+
+  .provider-group {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .provider-option {
+    flex: 1;
+    padding: 8px 6px;
+    text-align: center;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border, #454545));
+    background: var(--vscode-input-background);
+    color: var(--vscode-foreground);
+    user-select: none;
+  }
+
+  .provider-option.selected {
+    border-color: var(--vscode-focusBorder);
+    background: var(--vscode-list-activeSelectionBackground, var(--vscode-button-secondaryBackground));
+    color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+  }
+
+  #agent-section { display: none; }
+
+  .agent-hint {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin: 6px 0 0;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    color: var(--vscode-textLink-foreground);
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -314,28 +382,48 @@ export class SetupPanel {
   <hr class="divider"/>
 
   <div class="field">
-    <label for="url">API Endpoint URL</label>
-    <div class="input-row">
-      <input id="url" type="url"
-        placeholder="http://localhost:11434/v1"
-        autocomplete="off" spellcheck="false"/>
-      <button class="btn-secondary" id="fetch-btn">Connect</button>
+    <label>Provider</label>
+    <div class="provider-group" id="provider-group">
+      <div class="provider-option" data-provider="api">API Endpoint</div>
+      <div class="provider-option" data-provider="claude">Claude Code</div>
+      <div class="provider-option" data-provider="codex">Codex CLI</div>
     </div>
   </div>
 
-  <div class="field">
-    <label for="apiKey">
-      API Key <span class="hint">(optional)</span>
-    </label>
-    <input id="apiKey" type="password"
-      placeholder="Leave blank if your endpoint does not require one"/>
+  <div id="api-section">
+    <div class="field">
+      <label for="url">API Endpoint URL</label>
+      <div class="input-row">
+        <input id="url" type="url"
+          placeholder="http://localhost:11434/v1"
+          autocomplete="off" spellcheck="false"/>
+        <button class="btn-secondary" id="fetch-btn">Connect</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="apiKey">
+        API Key <span class="hint">(optional)</span>
+      </label>
+      <input id="apiKey" type="password"
+        placeholder="Leave blank if your endpoint does not require one"/>
+    </div>
+
+    <div class="status-bar" id="status"></div>
+
+    <div class="field" id="model-field">
+      <label for="model">Model</label>
+      <select id="model"></select>
+    </div>
   </div>
 
-  <div class="status-bar" id="status"></div>
-
-  <div class="field" id="model-field">
-    <label for="model">Model</label>
-    <select id="model"></select>
+  <div id="agent-section">
+    <div class="status-bar" id="agent-status"></div>
+    <p class="agent-hint" id="agent-hint"></p>
+    <p class="agent-hint">
+      Uses your existing CLI login — no API key needed.
+      <button class="link-btn" id="recheck-btn">Re-check installation</button>
+    </p>
   </div>
 
   <button class="btn-primary" id="save-btn" disabled>Save Configuration</button>
@@ -351,9 +439,67 @@ export class SetupPanel {
   const modelField = document.getElementById('model-field');
   const saveBtn   = document.getElementById('save-btn');
   const statusEl  = document.getElementById('status');
+  const apiSection = document.getElementById('api-section');
+  const agentSection = document.getElementById('agent-section');
+  const agentStatusEl = document.getElementById('agent-status');
+  const agentHintEl = document.getElementById('agent-hint');
+  const providerGroup = document.getElementById('provider-group');
+  const recheckBtn = document.getElementById('recheck-btn');
+
+  const AGENT_LABELS = { claude: 'Claude Code', codex: 'Codex CLI' };
+  const AGENT_INSTALL = {
+    claude: 'Install Claude Code from claude.com/claude-code, or set gitCommitAI.claudePath in Settings.',
+    codex: 'Install with: npm i -g @openai/codex — or set gitCommitAI.codexPath in Settings.',
+  };
+
+  let provider = 'api';
+  let agents = { claude: { found: false }, codex: { found: false } };
+  let modelsLoaded = false;
 
   let keyDirty = false;
   keyEl.addEventListener('input', () => { keyDirty = true; });
+
+  function renderAgentStatus() {
+    const info = agents[provider] || { found: false };
+    agentStatusEl.className = 'status-bar ' + (info.found ? 'success' : 'error');
+    agentStatusEl.textContent = '';
+    const span = document.createElement('span');
+    if (info.found) {
+      span.textContent = '✓ ' + AGENT_LABELS[provider] +
+        (info.version ? ' ' + info.version : '') +
+        (info.path ? ' — ' + info.path : '');
+    } else {
+      span.textContent = '✗ ' + AGENT_LABELS[provider] + ' not found on this machine.';
+    }
+    agentStatusEl.appendChild(span);
+    agentHintEl.textContent = info.found ? '' : AGENT_INSTALL[provider];
+  }
+
+  function applyProvider() {
+    for (const opt of providerGroup.children) {
+      opt.classList.toggle('selected', opt.dataset.provider === provider);
+    }
+    const isApi = provider === 'api';
+    apiSection.style.display = isApi ? 'block' : 'none';
+    agentSection.style.display = isApi ? 'none' : 'block';
+    if (isApi) {
+      saveBtn.disabled = !modelsLoaded;
+    } else {
+      renderAgentStatus();
+      saveBtn.disabled = !(agents[provider] && agents[provider].found);
+    }
+  }
+
+  providerGroup.addEventListener('click', (event) => {
+    const target = event.target.closest('.provider-option');
+    if (!target) return;
+    provider = target.dataset.provider;
+    applyProvider();
+  });
+
+  recheckBtn.addEventListener('click', () => {
+    vscode.postMessage({ type: 'refreshAgents' });
+  });
 
   function setStatus(text, type, spinning) {
     statusEl.className = 'status-bar ' + (type || '');
@@ -384,6 +530,7 @@ export class SetupPanel {
   saveBtn.addEventListener('click', () => {
     vscode.postMessage({
       type: 'save',
+      provider,
       url: urlEl.value.trim(),
       apiKey: keyEl.value.trim(),
       keyDirty,
@@ -399,6 +546,15 @@ export class SetupPanel {
       if (msg.hasApiKey) {
         keyEl.placeholder = 'Key saved — leave blank to keep it';
       }
+      provider = msg.provider || 'api';
+      agents = msg.agents || agents;
+      applyProvider();
+      return;
+    }
+
+    if (msg.type === 'agentsDetected') {
+      agents = msg.agents || agents;
+      if (provider !== 'api') applyProvider();
       return;
     }
 
@@ -411,6 +567,7 @@ export class SetupPanel {
         modelSel.appendChild(opt);
       });
       modelField.style.display = 'block';
+      modelsLoaded = true;
       saveBtn.disabled = false;
       fetchBtn.disabled = false;
       fetchBtn.textContent = 'Connect';
@@ -426,6 +583,7 @@ export class SetupPanel {
     }
   });
 
+  applyProvider();
   vscode.postMessage({ type: 'ready' });
 </script>
 </body>

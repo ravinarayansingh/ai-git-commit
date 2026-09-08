@@ -63,12 +63,15 @@ export function activate(context: vscode.ExtensionContext) {
         const controller = new AbortController();
         let cancelled = false;
 
+        const providerLabel =
+          config.provider === 'claude' ? ' via Claude Code' : config.provider === 'codex' ? ' via Codex' : '';
+
         let message: string;
         try {
           message = await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: 'Generating commit message…',
+              title: `Generating commit message${providerLabel}…`,
               cancellable: true,
             },
             (_progress, token) => {

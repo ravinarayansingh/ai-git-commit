@@ -1,4 +1,5 @@
 import { Config } from './config';
+import { runAgent } from './agentProvider';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -15,7 +16,7 @@ interface ChatCompletionResponse {
 const REQUEST_TIMEOUT_MS = 60_000;
 
 /** Remove markdown fences and surrounding quotes that LLMs often wrap output in. */
-function cleanMessage(raw: string): string {
+export function cleanMessage(raw: string): string {
   let text = raw.trim();
   const fenced = text.match(/^```[a-zA-Z]*\n?([\s\S]*?)\n?```$/);
   if (fenced) {
@@ -34,6 +35,16 @@ export async function generateCommitMessage(
   apiKey: string | undefined,
   signal?: AbortSignal
 ): Promise<string> {
+  if (config.provider !== 'api') {
+    // Agent CLIs get one combined prompt on stdin. Use a function replacer so
+    // `$&` etc. in the diff are not treated as patterns.
+    const base = config.systemPrompt.includes('{diff}')
+      ? config.systemPrompt.replace('{diff}', () => diff)
+      : `${config.systemPrompt}\n\nDiff:\n${diff}`;
+    const prompt = `${base}\n\nOutput ONLY the commit message text — no preamble, no explanation, no markdown fences.`;
+    return cleanMessage(await runAgent(config.provider, prompt, config, signal));
+  }
+
   // Split the template into instructions (system) and the diff (user). Use a
   // function replacer so `$&` etc. in the diff are not treated as patterns.
   let messages: ChatMessage[];

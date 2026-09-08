@@ -1,6 +1,9 @@
 // Runs inside the Extension Development Host.
 const assert = require('assert');
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const vscode = require('vscode');
 
 function startMockServer() {
@@ -51,8 +54,8 @@ exports.run = async function () {
   };
 
   // 1. Extension loads and activates
-  const ext = vscode.extensions.getExtension('RavinarayanSingh.ai-git-commit');
-  assert.ok(ext, 'extension RavinarayanSingh.ai-git-commit not found in host');
+  const ext = vscode.extensions.getExtension('RavinarayanSingh.ai-commit-message-generator');
+  assert.ok(ext, 'extension RavinarayanSingh.ai-commit-message-generator not found in host');
   await ext.activate();
   assert.ok(ext.isActive, 'extension failed to activate');
   pass('extension activates');
@@ -105,5 +108,30 @@ exports.run = async function () {
   pass('request payload correct (system/user roles, intact $& diff, max_tokens, no auth header)');
 
   server.close();
+
+  // 7. Agent CLI provider: a fake `claude` binary that records stdin and
+  // echoes a canned message exercises the spawn/stdin/cleanup path.
+  const fakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-claude-'));
+  const fakeBin = path.join(fakeDir, 'claude');
+  const stdinDump = path.join(fakeDir, 'stdin.txt');
+  fs.writeFileSync(fakeBin, `#!/bin/sh\ncat > "${stdinDump}"\necho "test: fake agent commit message"\n`);
+  fs.chmodSync(fakeBin, 0o755);
+
+  await cfg.update('provider', 'claude', vscode.ConfigurationTarget.Global);
+  await cfg.update('claudePath', fakeBin, vscode.ConfigurationTarget.Global);
+  repo.inputBox.value = '';
+
+  await vscode.commands.executeCommand('gitCommitAI.generate');
+  await waitFor(() => repo.inputBox.value, 'agent commit message in input box');
+  assert.strictEqual(repo.inputBox.value, 'test: fake agent commit message');
+
+  const promptSent = fs.readFileSync(stdinDump, 'utf8');
+  assert.ok(promptSent.includes('hello $& world'), 'diff missing or corrupted in agent prompt');
+  assert.ok(/Output ONLY the commit message/i.test(promptSent), 'agent prompt missing output guard');
+
+  await cfg.update('provider', 'api', vscode.ConfigurationTarget.Global);
+  await cfg.update('claudePath', undefined, vscode.ConfigurationTarget.Global);
+  pass('agent CLI provider spawns binary, sends diff on stdin, fills input box');
+
   console.log(`\nAll ${checks.length} integration checks passed.`);
 };
