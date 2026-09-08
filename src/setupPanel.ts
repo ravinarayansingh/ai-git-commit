@@ -1,15 +1,18 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
+import { API_KEY_SECRET } from './config';
 
 interface ModelsResponse {
   data: Array<{ id: string }>;
 }
 
 type WebviewMessage =
+  | { type: 'ready' }
   | { type: 'fetchModels'; url: string; apiKey: string }
-  | { type: 'save'; url: string; apiKey: string; model: string };
+  | { type: 'save'; url: string; apiKey: string; keyDirty: boolean; model: string };
 
 type ExtensionMessage =
-  | { type: 'initialConfig'; url: string; apiKey: string; model: string }
+  | { type: 'initialConfig'; url: string; hasApiKey: boolean; model: string }
   | { type: 'modelsLoaded'; models: string[] }
   | { type: 'fetchError'; message: string };
 
@@ -18,6 +21,7 @@ export class SetupPanel {
 
   private readonly panel: vscode.WebviewPanel;
   private readonly context: vscode.ExtensionContext;
+  private readonly disposables: vscode.Disposable[] = [];
 
   static show(context: vscode.ExtensionContext): void {
     if (SetupPanel.current) {
@@ -28,7 +32,7 @@ export class SetupPanel {
       'gitCommitAISetup',
       'AI Commit — Setup',
       vscode.ViewColumn.One,
-      { enableScripts: true, retainContextWhenHidden: true }
+      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] }
     );
     SetupPanel.current = new SetupPanel(panel, context);
   }
@@ -38,40 +42,60 @@ export class SetupPanel {
     this.context = context;
     this.panel.webview.html = this.buildHtml();
 
-    // Send current saved values so the form pre-fills on re-open
-    const cfg = vscode.workspace.getConfiguration('gitCommitAI');
-    const init: ExtensionMessage = {
-      type: 'initialConfig',
-      url: cfg.get<string>('apiUrl', ''),
-      apiKey: cfg.get<string>('apiKey', ''),
-      model: cfg.get<string>('model', ''),
-    };
-    this.panel.webview.postMessage(init);
-
     this.panel.webview.onDidReceiveMessage(
       (msg: WebviewMessage) => {
-        if (msg.type === 'fetchModels') {
-          this.onFetchModels(msg.url, msg.apiKey);
+        if (msg.type === 'ready') {
+          this.sendInitialConfig().catch(() => undefined);
+        } else if (msg.type === 'fetchModels') {
+          this.onFetchModels(msg.url, msg.apiKey).catch((err) =>
+            vscode.window.showErrorMessage(`Git Commit AI: ${(err as Error).message}`)
+          );
         } else if (msg.type === 'save') {
-          this.onSave(msg.url, msg.apiKey, msg.model);
+          this.onSave(msg.url, msg.apiKey, msg.keyDirty, msg.model).catch((err) =>
+            vscode.window.showErrorMessage(`Git Commit AI: failed to save configuration: ${(err as Error).message}`)
+          );
         }
       },
       undefined,
-      context.subscriptions
+      this.disposables
     );
 
-    this.panel.onDidDispose(() => {
-      SetupPanel.current = undefined;
-    });
+    this.panel.onDidDispose(
+      () => {
+        SetupPanel.current = undefined;
+        this.disposables.forEach((d) => d.dispose());
+        this.disposables.length = 0;
+      },
+      undefined,
+      this.disposables
+    );
+  }
+
+  /** Pre-fill the form once the webview signals it is listening. */
+  private async sendInitialConfig(): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('gitCommitAI');
+    const savedKey = await this.context.secrets.get(API_KEY_SECRET);
+    const init: ExtensionMessage = {
+      type: 'initialConfig',
+      url: cfg.get<string>('apiUrl', ''),
+      hasApiKey: Boolean(savedKey),
+      model: cfg.get<string>('model', ''),
+    };
+    await this.panel.webview.postMessage(init);
   }
 
   private async onFetchModels(url: string, apiKey: string): Promise<void> {
     try {
+      // A blank field means "use the saved key" — the secret is never sent to the webview.
+      const key = apiKey || (await this.context.secrets.get(API_KEY_SECRET)) || '';
       const headers: Record<string, string> = {};
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
+      if (key) {
+        headers['Authorization'] = `Bearer ${key}`;
       }
-      const response = await fetch(`${url.replace(/\/$/, '')}/models`, { headers });
+      const response = await fetch(`${url.replace(/\/+$/, '')}/models`, {
+        headers,
+        signal: AbortSignal.timeout(15_000),
+      });
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);
       }
@@ -81,28 +105,37 @@ export class SetupPanel {
         throw new Error('No models returned by the server.');
       }
       const msg: ExtensionMessage = { type: 'modelsLoaded', models };
-      this.panel.webview.postMessage(msg);
+      await this.panel.webview.postMessage(msg);
     } catch (err) {
       const msg: ExtensionMessage = { type: 'fetchError', message: (err as Error).message };
-      this.panel.webview.postMessage(msg);
+      await this.panel.webview.postMessage(msg);
     }
   }
 
-  private async onSave(url: string, apiKey: string, model: string): Promise<void> {
+  private async onSave(url: string, apiKey: string, keyDirty: boolean, model: string): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('gitCommitAI');
-    await cfg.update('apiUrl', url, vscode.ConfigurationTarget.Global);
-    await cfg.update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
+    await cfg.update('apiUrl', url.trim().replace(/\/+$/, ''), vscode.ConfigurationTarget.Global);
     await cfg.update('model', model, vscode.ConfigurationTarget.Global);
+    if (keyDirty) {
+      if (apiKey) {
+        await this.context.secrets.store(API_KEY_SECRET, apiKey);
+      } else {
+        await this.context.secrets.delete(API_KEY_SECRET);
+      }
+    }
     await this.context.globalState.update('setupComplete', true);
     vscode.window.showInformationMessage(`AI Commit ready — using model "${model}"`);
     this.panel.dispose();
   }
 
   private buildHtml(): string {
+    const nonce = crypto.randomBytes(16).toString('base64');
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src data:;"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Commit Setup</title>
 <style>
@@ -308,7 +341,7 @@ export class SetupPanel {
   <button class="btn-primary" id="save-btn" disabled>Save Configuration</button>
 </div>
 
-<script>
+<script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
 
   const urlEl     = document.getElementById('url');
@@ -319,13 +352,23 @@ export class SetupPanel {
   const saveBtn   = document.getElementById('save-btn');
   const statusEl  = document.getElementById('status');
 
+  let keyDirty = false;
+  keyEl.addEventListener('input', () => { keyDirty = true; });
+
   function setStatus(text, type, spinning) {
     statusEl.className = 'status-bar ' + (type || '');
-    statusEl.innerHTML = (spinning ? '<span class="spinner"></span>' : '') +
-      '<span>' + text + '</span>';
+    statusEl.textContent = '';
+    if (spinning) {
+      const spinner = document.createElement('span');
+      spinner.className = 'spinner';
+      statusEl.appendChild(spinner);
+    }
+    const span = document.createElement('span');
+    span.textContent = text;
+    statusEl.appendChild(span);
   }
 
-  function clearStatus() { statusEl.className = 'status-bar'; statusEl.innerHTML = ''; }
+  function clearStatus() { statusEl.className = 'status-bar'; statusEl.textContent = ''; }
 
   fetchBtn.addEventListener('click', () => {
     const url = urlEl.value.trim();
@@ -343,6 +386,7 @@ export class SetupPanel {
       type: 'save',
       url: urlEl.value.trim(),
       apiKey: keyEl.value.trim(),
+      keyDirty,
       model: modelSel.value,
     });
   });
@@ -351,8 +395,10 @@ export class SetupPanel {
     const msg = event.data;
 
     if (msg.type === 'initialConfig') {
-      if (msg.url)   urlEl.value = msg.url;
-      if (msg.apiKey) keyEl.value = msg.apiKey;
+      if (msg.url) urlEl.value = msg.url;
+      if (msg.hasApiKey) {
+        keyEl.placeholder = 'Key saved — leave blank to keep it';
+      }
       return;
     }
 
@@ -379,6 +425,8 @@ export class SetupPanel {
       return;
     }
   });
+
+  vscode.postMessage({ type: 'ready' });
 </script>
 </body>
 </html>`;
