@@ -1,0 +1,104 @@
+{
+  "name": "git-commit-ai",
+  "displayName": "AI Commit Message Generator",
+  "description": "Generate git commit messages using any OpenAI-compatible LLM (Ollama, vLLM, OpenAI, etc.)",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitCommitAI.generate",
+        "title": "AI: Generate Commit Message",
+        "icon": "$(sparkle)",
+        "color": {"id": "gitCommitAI.iconColor"}
+      },
+      {
+        "command": "gitCommitAI.setup",
+        "title": "AI: Configure API & Model"
+      }
+    ],
+    "colors": [
+      {
+        "id": "gitCommitAI.iconColor",
+        "description": "Color of the AI Commit sparkle icon in the SCM toolbar",
+        "defaults": {
+          "dark": "#FFD700",
+          "light": "#E6A800",
+          "highContrast": "#FFD700",
+          "highContrastLight": "#E6A800"
+        }
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "gitCommitAI.generate",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Commit Message Generator",
+      "properties": {
+        "gitCommitAI.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:11434/v1",
+          "description": "Base URL for the OpenAI-compatible API (e.g. Ollama, vLLM, OpenAI). Do not include trailing slash."
+        },
+        "gitCommitAI.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key / bearer token. Leave empty if your endpoint does not require authentication."
+        },
+        "gitCommitAI.model": {
+          "type": "string",
+          "default": "gpt-oss:latest",
+          "description": "Model name to use for generation (e.g. llama3, gpt-4o, mistral)."
+        },
+        "gitCommitAI.maxTokens": {
+          "type": "number",
+          "default": 200,
+          "minimum": 10,
+          "maximum": 4096,
+          "description": "Maximum number of tokens in the generated commit message."
+        },
+        "gitCommitAI.temperature": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Sampling temperature. Lower values produce more deterministic output."
+        },
+        "gitCommitAI.systemPrompt": {
+          "type": "string",
+          "default": "You are an expert developer. Given the following git diff of staged changes, write a concise, imperative commit message (max 72 chars for the subject line). Output only the commit message text, nothing else.\n\nDiff:\n{diff}",
+          "description": "Prompt sent to the LLM. Use {diff} as a placeholder for the staged diff."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "vscode:prepublish": "node esbuild.js --minify"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}
