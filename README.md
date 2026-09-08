@@ -1,4 +1,4 @@
-# AI Commit Message Generator
+# AI Git Commit (Ollama & OpenAI)
 
 Generate git commit messages from your staged changes using any OpenAI-compatible LLM — Ollama, vLLM, OpenAI, and more.
 

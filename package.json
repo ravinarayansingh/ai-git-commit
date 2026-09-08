@@ -1,6 +1,6 @@
 {
-  "name": "git-commit-ai",
-  "displayName": "AI Commit Message Generator",
+  "name": "ai-commit-message-generator",
+  "displayName": "AI Git Commit (Ollama & OpenAI)",
   "description": "Generate git commit messages using any OpenAI-compatible LLM (Ollama, vLLM, OpenAI, etc.)",
   "version": "0.1.0",
   "icon": "images/icon.png",
