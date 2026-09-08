@@ -107,6 +107,17 @@ exports.run = async function () {
   assert.ok(!genReq.headers.authorization, 'unexpected Authorization header with no key saved');
   pass('request payload correct (system/user roles, intact $& diff, max_tokens, no auth header)');
 
+  // 6b. Convention detected from the workspace .commitlintrc.json
+  assert.ok(
+    payload.messages[0].content.includes('Conventional Commits'),
+    'convention instruction missing from system message'
+  );
+  assert.ok(
+    payload.messages[0].content.includes('feat, fix, chore'),
+    'custom type-enum types missing from convention instruction'
+  );
+  pass('commit convention detected from .commitlintrc.json (custom types in prompt)');
+
   server.close();
 
   // 7. Agent CLI provider: a fake `claude` binary that records stdin and
@@ -128,10 +139,21 @@ exports.run = async function () {
   const promptSent = fs.readFileSync(stdinDump, 'utf8');
   assert.ok(promptSent.includes('hello $& world'), 'diff missing or corrupted in agent prompt');
   assert.ok(/Output ONLY the commit message/i.test(promptSent), 'agent prompt missing output guard');
+  assert.ok(promptSent.includes('Conventional Commits'), 'convention instruction missing from agent prompt');
+  pass('agent CLI provider spawns binary, sends diff on stdin, fills input box');
 
+  // 8. commitStyle 'plain' suppresses the convention instruction
+  await cfg.update('commitStyle', 'plain', vscode.ConfigurationTarget.Global);
+  repo.inputBox.value = '';
+  await vscode.commands.executeCommand('gitCommitAI.generate');
+  await waitFor(() => repo.inputBox.value, 'plain-style commit message');
+  const plainPrompt = fs.readFileSync(stdinDump, 'utf8');
+  assert.ok(!plainPrompt.includes('Conventional Commits'), 'plain style still injected convention instruction');
+  pass("commitStyle 'plain' suppresses the convention instruction");
+
+  await cfg.update('commitStyle', undefined, vscode.ConfigurationTarget.Global);
   await cfg.update('provider', 'api', vscode.ConfigurationTarget.Global);
   await cfg.update('claudePath', undefined, vscode.ConfigurationTarget.Global);
-  pass('agent CLI provider spawns binary, sends diff on stdin, fills input box');
 
   console.log(`\nAll ${checks.length} integration checks passed.`);
 };

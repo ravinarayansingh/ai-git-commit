@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- **Commit convention detection**: projects using semantic-release, commitizen, commitlint, standard-version, release-please, or cocogitto (via `pyproject.toml`, `package.json`, commitlint configs, `.releaserc*`, `.versionrc*`, `cog.toml`, …) now get Conventional Commits messages with the project's allowed types; custom `type-enum` / `allowed_tags` lists are honored. Falls back to inferring the style from recent git history. Control with `gitCommitAI.commitStyle` (`auto` | `conventional` | `plain`)
+- **Stronger CLI detection**: `where` on Windows / `command -v` through your login shell on macOS & Linux (finds nvm/volta-managed installs), Windows `.exe`/`.cmd`/`.bat` handling including npm shims, and per-platform well-known install directories
+
 ## 0.2.0
 
 - New agent CLI providers: generate commit messages with **Claude Code** (`claude -p`) or the **Codex CLI** (`codex exec`) using your existing subscription — no endpoint or API key required

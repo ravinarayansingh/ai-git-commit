@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { API_KEY_SECRET, getConfig } from './config';
 import { getStagedInfo } from './gitHelper';
 import { generateCommitMessage } from './commitGenerator';
+import { conventionInstruction, detectConvention } from './commitConvention';
 import { SetupPanel } from './setupPanel';
 
 /** One-time move of the legacy plaintext apiKey setting into SecretStorage. */
@@ -60,6 +61,14 @@ export function activate(context: vscode.ExtensionContext) {
         const config = getConfig();
         const apiKey = await context.secrets.get(API_KEY_SECRET);
 
+        let instruction: string | undefined;
+        try {
+          const convention = await detectConvention(stagedInfo.rootUri.fsPath, config.commitStyle);
+          instruction = convention ? conventionInstruction(convention) : undefined;
+        } catch {
+          // best-effort — a detection failure must never block generation
+        }
+
         const controller = new AbortController();
         let cancelled = false;
 
@@ -79,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
                 cancelled = true;
                 controller.abort();
               });
-              return generateCommitMessage(stagedInfo.diff, config, apiKey, controller.signal);
+              return generateCommitMessage(stagedInfo.diff, config, apiKey, controller.signal, instruction);
             }
           );
         } catch (err) {

@@ -14,6 +14,7 @@ interface Repository {
 export interface StagedInfo {
   diff: string;
   inputBox: { value: string };
+  rootUri: vscode.Uri;
 }
 
 const MAX_DIFF_CHARS = 30_000;
@@ -84,5 +85,5 @@ export async function getStagedInfo(rootUri?: vscode.Uri): Promise<StagedInfo> {
     throw new Error('Staged diff is empty. Nothing to generate a commit message from.');
   }
 
-  return { diff: truncateDiff(diff), inputBox: repo.inputBox };
+  return { diff: truncateDiff(diff), inputBox: repo.inputBox, rootUri: repo.rootUri };
 }

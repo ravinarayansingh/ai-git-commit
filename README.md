@@ -37,6 +37,15 @@ Installed CLIs are auto-detected (PATH plus common install locations). If yours 
 3. Pick a provider. For an API endpoint: enter the URL, an API key if needed, press **Connect**, and pick a model. For Claude Code / Codex: the panel shows whether the CLI was found — just hit Save.
 4. Stage some changes, then click the sparkle icon in the Source Control title bar, right-click the **Staged Changes** group, or run **AI: Generate Commit Message** from the Command Palette.
 
+## Commit style detection
+
+If your project uses semantic versioning tooling, generated messages automatically follow **Conventional Commits** (`feat: …`, `fix(scope): …`) with the types your project allows. Detection checks, in order:
+
+1. Config files in the repo root: commitlint configs (custom `type-enum` types are honored), `package.json` (semantic-release / commitizen / commitlint / standard-version), `pyproject.toml` (`[tool.semantic_release]` — `allowed_tags` honored — or `[tool.commitizen]`), `.releaserc*`, `.versionrc*`, `release-please-config.json`, `cog.toml`, `.cz.*`
+2. Recent git history: if most of the last 30 commit subjects already follow `type(scope): …`, the same style (and the types you actually use) is kept
+
+Set `gitCommitAI.commitStyle` to `conventional` to force it, or `plain` to turn it off.
+
 ## Settings
 
 | Setting | Default | Description |
@@ -44,6 +53,7 @@ Installed CLIs are auto-detected (PATH plus common install locations). If yours 
 | `gitCommitAI.provider` | `api` | `api`, `claude` (Claude Code CLI), or `codex` (Codex CLI) |
 | `gitCommitAI.claudePath` | *(auto-detect)* | Explicit path to the `claude` binary |
 | `gitCommitAI.codexPath` | *(auto-detect)* | Explicit path to the `codex` binary |
+| `gitCommitAI.commitStyle` | `auto` | `auto` (detect Conventional Commits), `conventional` (force), or `plain` (off) |
 | `gitCommitAI.apiUrl` | `http://localhost:11434/v1` | Base URL of the OpenAI-compatible API |
 | `gitCommitAI.model` | `gpt-oss:latest` | Model used for generation |
 | `gitCommitAI.maxTokens` | `200` | Max tokens in the generated message |

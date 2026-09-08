@@ -17,6 +17,11 @@ async function main() {
   // `$&` in the content exercises the old replace() corruption bug
   fs.writeFileSync(path.join(ws, 'hello.txt'), 'hello $& world\n');
   cp.execSync('git add hello.txt', { cwd: ws });
+  // commitlint config with a custom type-enum exercises convention detection
+  fs.writeFileSync(
+    path.join(ws, '.commitlintrc.json'),
+    JSON.stringify({ rules: { 'type-enum': [2, 'always', ['feat', 'fix', 'chore']] } })
+  );
 
   await runTests({
     extensionDevelopmentPath,

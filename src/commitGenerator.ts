@@ -33,15 +33,18 @@ export async function generateCommitMessage(
   diff: string,
   config: Config,
   apiKey: string | undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  conventionInstruction?: string
 ): Promise<string> {
+  const convention = conventionInstruction ? `\n\n${conventionInstruction}` : '';
+
   if (config.provider !== 'api') {
     // Agent CLIs get one combined prompt on stdin. Use a function replacer so
     // `$&` etc. in the diff are not treated as patterns.
     const base = config.systemPrompt.includes('{diff}')
       ? config.systemPrompt.replace('{diff}', () => diff)
       : `${config.systemPrompt}\n\nDiff:\n${diff}`;
-    const prompt = `${base}\n\nOutput ONLY the commit message text — no preamble, no explanation, no markdown fences.`;
+    const prompt = `${base}${convention}\n\nOutput ONLY the commit message text — no preamble, no explanation, no markdown fences.`;
     return cleanMessage(await runAgent(config.provider, prompt, config, signal));
   }
 
@@ -51,12 +54,12 @@ export async function generateCommitMessage(
   if (config.systemPrompt.includes('{diff}')) {
     const instructions = config.systemPrompt.replace('{diff}', () => '').trim();
     messages = [
-      { role: 'system', content: instructions },
+      { role: 'system', content: `${instructions}${convention}` },
       { role: 'user', content: diff },
     ];
   } else {
     messages = [
-      { role: 'system', content: config.systemPrompt },
+      { role: 'system', content: `${config.systemPrompt}${convention}` },
       { role: 'user', content: `Diff:\n${diff}` },
     ];
   }

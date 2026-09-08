@@ -2,7 +2,7 @@
   "name": "ai-commit-message-generator",
   "displayName": "AI Git Commit Generator",
   "description": "Generate git commit messages from staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1b4b",
@@ -98,6 +98,21 @@
           "type": "string",
           "default": "",
           "description": "Path to the Codex CLI binary. Leave empty to auto-detect (PATH and common install locations)."
+        },
+        "gitCommitAI.commitStyle": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "conventional",
+            "plain"
+          ],
+          "enumDescriptions": [
+            "Detect the project's convention from config files (pyproject.toml, commitlint, semantic-release, …) or recent git history",
+            "Always use Conventional Commits format (feat, fix, chore, …)",
+            "Never add a format instruction — plain commit messages"
+          ],
+          "default": "auto",
+          "description": "Commit message style. In 'auto' mode, projects using semantic-release/commitizen/commitlint get Conventional Commits messages with the project's allowed types."
         },
         "gitCommitAI.apiUrl": {
           "type": "string",

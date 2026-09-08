@@ -65,61 +65,143 @@ const AGENTS: Record<AgentKind, AgentSpec> = {
   },
 };
 
+const IS_WINDOWS = process.platform === 'win32';
+
+/** npm shims on Windows are .cmd files; native installs are .exe. */
+function candidateNames(binary: string): string[] {
+  return IS_WINDOWS ? [`${binary}.exe`, `${binary}.cmd`, `${binary}.bat`, binary] : [binary];
+}
+
 /** GUI-launched VS Code often lacks these in PATH. */
 function wellKnownDirs(): string[] {
   const home = os.homedir();
+  if (IS_WINDOWS) {
+    const appData = process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming');
+    const localAppData = process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local');
+    return [
+      path.join(home, '.local', 'bin'),
+      path.join(appData, 'npm'),
+      path.join(localAppData, 'Programs', 'claude'),
+      path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
+    ];
+  }
   return [
     path.join(home, '.local', 'bin'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
     path.join(home, '.claude', 'local'),
     path.join(home, '.npm-global', 'bin'),
+    path.join(home, '.volta', 'bin'),
+    path.join(home, '.bun', 'bin'),
     path.join(home, 'bin'),
   ];
 }
 
-function isExecutable(file: string): boolean {
+function isRunnable(file: string): boolean {
   try {
-    fs.accessSync(file, fs.constants.X_OK);
-    return fs.statSync(file).isFile();
+    if (!fs.statSync(file).isFile()) {
+      return false;
+    }
+    if (!IS_WINDOWS) {
+      fs.accessSync(file, fs.constants.X_OK);
+    }
+    return true;
   } catch {
     return false;
   }
 }
 
-function resolveBinary(kind: AgentKind, config: Config): string | undefined {
-  const spec = AGENTS[kind];
+/**
+ * Ask the system where the binary lives: `where` on Windows, `command -v`
+ * through the user's login shell elsewhere (finds nvm/volta/profile-managed
+ * installs that GUI-launched VS Code's stripped PATH misses).
+ */
+function lookupViaSystem(binary: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const done = (stdout: string | undefined) => {
+      const first = stdout?.split(/\r?\n/).map((l) => l.trim()).find(Boolean);
+      resolve(first && isRunnable(first) ? first : undefined);
+    };
+    if (IS_WINDOWS) {
+      cp.exec(`where ${binary}`, { timeout: 5_000, windowsHide: true }, (err, stdout) =>
+        done(err ? undefined : stdout)
+      );
+    } else {
+      const shell = process.env.SHELL || '/bin/sh';
+      cp.execFile(shell, ['-lc', `command -v ${binary}`], { timeout: 5_000 }, (err, stdout) =>
+        done(err ? undefined : stdout)
+      );
+    }
+  });
+}
 
+// Positive results are cached; misses are re-checked so a fresh install is
+// picked up by the next attempt / "Re-check" without a reload.
+const resolveCache = new Map<string, string>();
+
+async function resolveBinary(kind: AgentKind, config: Config): Promise<string | undefined> {
+  const spec = AGENTS[kind];
   const override = config[spec.pathSetting];
-  if (override) {
-    return isExecutable(override) ? override : undefined;
+  const cacheKey = `${kind}:${override}`;
+
+  const cached = resolveCache.get(cacheKey);
+  if (cached && isRunnable(cached)) {
+    return cached;
   }
 
-  const pathDirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  for (const dir of [...pathDirs, ...wellKnownDirs()]) {
-    const candidate = path.join(dir, spec.binary);
-    if (isExecutable(candidate)) {
-      return candidate;
+  let found: string | undefined;
+  if (override) {
+    const candidates = IS_WINDOWS
+      ? [override, `${override}.exe`, `${override}.cmd`, `${override}.bat`]
+      : [override];
+    found = candidates.find(isRunnable);
+  } else {
+    found = await lookupViaSystem(spec.binary);
+    if (!found) {
+      const pathDirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+      outer: for (const dir of [...pathDirs, ...wellKnownDirs()]) {
+        for (const name of candidateNames(spec.binary)) {
+          const candidate = path.join(dir, name);
+          if (isRunnable(candidate)) {
+            found = candidate;
+            break outer;
+          }
+        }
+      }
     }
   }
-  return undefined;
+
+  if (found) {
+    resolveCache.set(cacheKey, found);
+  }
+  return found;
+}
+
+/** .cmd/.bat shims can only run through a shell on Node 18+. */
+function needsShell(binary: string): boolean {
+  return IS_WINDOWS && /\.(cmd|bat)$/i.test(binary);
 }
 
 function getVersion(binary: string): Promise<string | undefined> {
   return new Promise((resolve) => {
-    cp.execFile(binary, ['--version'], { timeout: 10_000 }, (err, stdout) => {
+    const handle = (err: Error | null, stdout: string) => {
       if (err) {
         resolve(undefined);
         return;
       }
       const match = stdout.match(/\d+\.\d+[.\d]*/);
       resolve(match ? match[0] : stdout.trim().slice(0, 40));
-    });
+    };
+    if (needsShell(binary)) {
+      cp.exec(`"${binary}" --version`, { timeout: 10_000, windowsHide: true }, handle);
+    } else {
+      cp.execFile(binary, ['--version'], { timeout: 10_000 }, handle);
+    }
   });
 }
 
 export async function detectAgent(kind: AgentKind, config: Config): Promise<AgentInfo> {
-  const binary = resolveBinary(kind, config);
+  const binary = await resolveBinary(kind, config);
   if (!binary) {
     return { found: false };
   }
@@ -131,7 +213,7 @@ const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
 
 export async function runAgent(kind: AgentKind, prompt: string, config: Config, signal?: AbortSignal): Promise<string> {
   const spec = AGENTS[kind];
-  const binary = resolveBinary(kind, config);
+  const binary = await resolveBinary(kind, config);
   if (!binary) {
     throw new Error(`${spec.label} CLI not found. ${spec.installHint}`);
   }
@@ -151,12 +233,23 @@ export async function runAgent(kind: AgentKind, prompt: string, config: Config, 
   try {
     const stdout = await new Promise<string>((resolve, reject) => {
       // cwd = tmpdir: the CLI needs no filesystem/project context — the diff is on stdin.
-      const child = cp.spawn(binary, args, {
-        cwd: os.tmpdir(),
-        env: process.env,
-        signal: controller.signal,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      // .cmd/.bat shims require a shell; quote the path and args for cmd.exe.
+      const useShell = needsShell(binary);
+      const child = useShell
+        ? cp.spawn(`"${binary}"`, args.map((a) => `"${a}"`), {
+            cwd: os.tmpdir(),
+            env: process.env,
+            signal: controller.signal,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: true,
+            windowsHide: true,
+          })
+        : cp.spawn(binary, args, {
+            cwd: os.tmpdir(),
+            env: process.env,
+            signal: controller.signal,
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
 
       let out = '';
       let errOut = '';
