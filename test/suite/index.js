@@ -51,8 +51,8 @@ exports.run = async function () {
   };
 
   // 1. Extension loads and activates
-  const ext = vscode.extensions.getExtension('ravinarayansingh.git-commit-ai');
-  assert.ok(ext, 'extension ravinarayansingh.git-commit-ai not found in host');
+  const ext = vscode.extensions.getExtension('RavinarayanSingh.git-commit-ai');
+  assert.ok(ext, 'extension RavinarayanSingh.git-commit-ai not found in host');
   await ext.activate();
   assert.ok(ext.isActive, 'extension failed to activate');
   pass('extension activates');
