@@ -67,7 +67,7 @@
         {
           "command": "gitCommitAI.generate",
           "when": "scmProvider == git",
-          "group": "navigation"
+          "group": "navigation@1"
         }
       ],
       "scm/resourceGroup/context": [
