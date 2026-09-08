@@ -3,6 +3,23 @@
   "displayName": "AI Commit Message Generator",
   "description": "Generate git commit messages using any OpenAI-compatible LLM (Ollama, vLLM, OpenAI, etc.)",
   "version": "0.1.0",
+  "publisher": "ravinarayansingh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ravinarayansingh/ai-git-commit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ravinarayansingh/ai-git-commit/issues"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "ollama",
+    "openai",
+    "llm"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -21,8 +38,7 @@
       {
         "command": "gitCommitAI.generate",
         "title": "AI: Generate Commit Message",
-        "icon": "$(sparkle)",
-        "color": {"id": "gitCommitAI.iconColor"}
+        "icon": "$(sparkle)"
       },
       {
         "command": "gitCommitAI.setup",
@@ -57,11 +73,6 @@
           "type": "string",
           "default": "http://localhost:11434/v1",
           "description": "Base URL for the OpenAI-compatible API (e.g. Ollama, vLLM, OpenAI). Do not include trailing slash."
-        },
-        "gitCommitAI.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key / bearer token. Leave empty if your endpoint does not require authentication."
         },
         "gitCommitAI.model": {
           "type": "string",

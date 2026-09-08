@@ -3,6 +3,7 @@ node_modules/**
 esbuild.js
 tsconfig.json
 .gitignore
+.vscode/**
 **/*.map
 **/*.ts
-!dist/**
+!dist/extension.js
