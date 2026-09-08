@@ -1,6 +1,6 @@
-# AI Git Commit (Ollama & OpenAI)
+# AI Git Commit Generator
 
-Generate git commit messages from your staged changes using any OpenAI-compatible LLM — Ollama, vLLM, OpenAI, and more.
+Generate git commit messages from your staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.
 
 ## Features
 

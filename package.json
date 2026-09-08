@@ -1,8 +1,8 @@
 {
   "name": "ai-commit-message-generator",
-  "displayName": "AI Git Commit (Ollama & OpenAI)",
-  "description": "Generate git commit messages using any OpenAI-compatible LLM (Ollama, vLLM, OpenAI, etc.)",
-  "version": "0.1.0",
+  "displayName": "AI Git Commit Generator",
+  "description": "Generate git commit messages from staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.",
+  "version": "0.1.1",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1b4b",

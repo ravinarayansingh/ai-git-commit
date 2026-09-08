@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Rename to "AI Git Commit Generator"; clarify that any OpenAI-compatible endpoint works (Ollama, vLLM, SGLang, LM Studio, OpenAI, …)
+
 ## 0.1.0
 
 Initial release.
