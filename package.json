@@ -3,6 +3,11 @@
   "displayName": "AI Commit Message Generator",
   "description": "Generate git commit messages using any OpenAI-compatible LLM (Ollama, vLLM, OpenAI, etc.)",
   "version": "0.1.0",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1b4b",
+    "theme": "dark"
+  },
   "publisher": "ravinarayansingh",
   "license": "MIT",
   "repository": {
@@ -63,6 +68,12 @@
           "command": "gitCommitAI.generate",
           "when": "scmProvider == git",
           "group": "navigation"
+        }
+      ],
+      "scm/inputBox": [
+        {
+          "command": "gitCommitAI.generate",
+          "when": "scmProvider == git"
         }
       ]
     },

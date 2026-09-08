@@ -24,7 +24,7 @@ Generate git commit messages from your staged changes using any OpenAI-compatibl
 1. Install the extension.
 2. Run **AI: Configure API & Model** from the Command Palette (or follow the setup notification on first launch).
 3. Enter your API URL (e.g. `http://localhost:11434/v1`), an API key if your endpoint needs one, press **Connect**, and pick a model.
-4. Stage some changes, then click the sparkle icon in the Source Control title bar (or run **AI: Generate Commit Message**).
+4. Stage some changes, then click the sparkle icon inside the commit message box or in the Source Control title bar (or run **AI: Generate Commit Message** from the Command Palette).
 
 ## Settings
 
