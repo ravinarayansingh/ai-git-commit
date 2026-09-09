@@ -1,12 +1,18 @@
 import * as vscode from 'vscode';
+import * as cp from 'child_process';
+import { DiffScope } from './config';
 
 interface GitExtensionAPI {
   repositories: Repository[];
+  git?: { path: string };
 }
 
 interface Repository {
   rootUri: vscode.Uri;
-  state: { indexChanges: unknown[] };
+  state: {
+    indexChanges: unknown[];
+    HEAD?: { ahead?: number; upstream?: { remote: string; name: string } };
+  };
   diff(staged: boolean): Promise<string>;
   inputBox: { value: string };
 }
@@ -58,7 +64,19 @@ async function resolveRepository(api: GitExtensionAPI, rootUri?: vscode.Uri): Pr
   return picked.repo;
 }
 
-export async function getStagedInfo(rootUri?: vscode.Uri): Promise<StagedInfo> {
+/** Diff from the upstream ref to the index: unpushed commits + staged changes. */
+function diffAgainstUpstream(gitPath: string, cwd: string, upstreamRef: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cp.execFile(
+      gitPath,
+      ['diff', '--cached', upstreamRef],
+      { cwd, timeout: 15_000, maxBuffer: 32 * 1024 * 1024 },
+      (err, stdout) => (err ? reject(err) : resolve(stdout))
+    );
+  });
+}
+
+export async function getStagedInfo(rootUri?: vscode.Uri, scope: DiffScope = 'staged'): Promise<StagedInfo> {
   const gitExtension = vscode.extensions.getExtension('vscode.git');
   if (!gitExtension) {
     throw new Error('VSCode built-in Git extension not found.');
@@ -75,11 +93,26 @@ export async function getStagedInfo(rootUri?: vscode.Uri): Promise<StagedInfo> {
 
   const repo = await resolveRepository(api, rootUri);
 
-  if (!repo.state.indexChanges.length) {
+  const head = repo.state.HEAD;
+  const wantUnpushed =
+    scope === 'staged-and-unpushed' && Boolean(head?.upstream) && (head?.ahead ?? 0) > 0;
+
+  if (!repo.state.indexChanges.length && !wantUnpushed) {
     throw new Error('No staged changes found. Stage some files before generating a commit message.');
   }
 
-  const diff = await repo.diff(true);
+  let diff = '';
+  if (wantUnpushed && head?.upstream) {
+    const upstreamRef = `${head.upstream.remote}/${head.upstream.name}`;
+    try {
+      diff = await diffAgainstUpstream(api.git?.path ?? 'git', repo.rootUri.fsPath, upstreamRef);
+    } catch {
+      // upstream ref missing or git call failed — fall back to the staged diff
+    }
+  }
+  if (!diff.trim()) {
+    diff = await repo.diff(true);
+  }
 
   if (!diff.trim()) {
     throw new Error('Staged diff is empty. Nothing to generate a commit message from.');

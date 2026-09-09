@@ -5,11 +5,14 @@ export const API_KEY_SECRET = 'gitCommitAI.apiKey';
 
 export type Provider = 'api' | 'claude' | 'codex';
 
+export type DiffScope = 'staged' | 'staged-and-unpushed';
+
 export interface Config {
   provider: Provider;
   claudePath: string;
   codexPath: string;
   commitStyle: CommitStyle;
+  diffScope: DiffScope;
   apiUrl: string;
   model: string;
   maxTokens: number;
@@ -24,6 +27,7 @@ export function getConfig(): Config {
     claudePath: cfg.get<string>('claudePath', '').trim(),
     codexPath: cfg.get<string>('codexPath', '').trim(),
     commitStyle: cfg.get<CommitStyle>('commitStyle', 'auto'),
+    diffScope: cfg.get<DiffScope>('diffScope', 'staged'),
     apiUrl: cfg.get<string>('apiUrl', 'http://localhost:11434/v1').trim().replace(/\/+$/, ''),
     model: cfg.get<string>('model', 'gpt-oss:latest'),
     maxTokens: cfg.get<number>('maxTokens', 600),

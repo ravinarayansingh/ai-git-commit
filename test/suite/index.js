@@ -152,6 +152,25 @@ exports.run = async function () {
   pass("commitStyle 'plain' suppresses the convention instruction");
 
   await cfg.update('commitStyle', undefined, vscode.ConfigurationTarget.Global);
+
+  // 9. diffScope 'staged-and-unpushed' includes unpushed commits + staged changes
+  await waitFor(
+    () => repo.state.HEAD && repo.state.HEAD.upstream && (repo.state.HEAD.ahead ?? 0) > 0,
+    'upstream tracking with unpushed commits'
+  );
+  await cfg.update('diffScope', 'staged-and-unpushed', vscode.ConfigurationTarget.Global);
+  repo.inputBox.value = '';
+  await vscode.commands.executeCommand('gitCommitAI.generate');
+  await waitFor(() => repo.inputBox.value, 'unpushed-scope commit message');
+  const unpushedPrompt = fs.readFileSync(stdinDump, 'utf8');
+  assert.ok(
+    unpushedPrompt.includes('unpushed feature content'),
+    'unpushed commit content missing from diff'
+  );
+  assert.ok(unpushedPrompt.includes('hello $& world'), 'staged content missing from unpushed-scope diff');
+  pass("diffScope 'staged-and-unpushed' covers unpushed commits plus staged changes");
+
+  await cfg.update('diffScope', undefined, vscode.ConfigurationTarget.Global);
   await cfg.update('provider', 'api', vscode.ConfigurationTarget.Global);
   await cfg.update('claudePath', undefined, vscode.ConfigurationTarget.Global);
 

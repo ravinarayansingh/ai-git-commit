@@ -2,7 +2,7 @@
   "name": "ai-commit-message-generator",
   "displayName": "AI Git Commit Generator",
   "description": "Generate git commit messages from staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1b4b",
@@ -98,6 +98,19 @@
           "type": "string",
           "default": "",
           "description": "Path to the Codex CLI binary. Leave empty to auto-detect (PATH and common install locations)."
+        },
+        "gitCommitAI.diffScope": {
+          "type": "string",
+          "enum": [
+            "staged",
+            "staged-and-unpushed"
+          ],
+          "enumDescriptions": [
+            "Generate from the staged changes only (what the next commit will contain)",
+            "Generate from unpushed local commits plus the staged changes (diff against the upstream branch)"
+          ],
+          "default": "staged",
+          "description": "Which changes the commit message should describe. 'staged-and-unpushed' is useful before amending or squashing local commits; it falls back to staged-only when the branch has no upstream or nothing is unpushed."
         },
         "gitCommitAI.commitStyle": {
           "type": "string",

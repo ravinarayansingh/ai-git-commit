@@ -54,6 +54,7 @@ Set `gitCommitAI.commitStyle` to `conventional` to force it, or `plain` to turn 
 | `gitCommitAI.claudePath` | *(auto-detect)* | Explicit path to the `claude` binary |
 | `gitCommitAI.codexPath` | *(auto-detect)* | Explicit path to the `codex` binary |
 | `gitCommitAI.commitStyle` | `auto` | `auto` (detect Conventional Commits), `conventional` (force), or `plain` (off) |
+| `gitCommitAI.diffScope` | `staged` | `staged` (next commit only) or `staged-and-unpushed` (also cover local commits not yet pushed — useful before amending/squashing) |
 | `gitCommitAI.apiUrl` | `http://localhost:11434/v1` | Base URL of the OpenAI-compatible API |
 | `gitCommitAI.model` | `gpt-oss:latest` | Model used for generation |
 | `gitCommitAI.maxTokens` | `200` | Max tokens in the generated message |

@@ -49,16 +49,17 @@ export function activate(context: vscode.ExtensionContext) {
       generating = true;
 
       try {
+        const config = getConfig();
+
         let stagedInfo: Awaited<ReturnType<typeof getStagedInfo>>;
 
         try {
-          stagedInfo = await getStagedInfo(sourceControl?.rootUri);
+          stagedInfo = await getStagedInfo(sourceControl?.rootUri, config.diffScope);
         } catch (err) {
           vscode.window.showWarningMessage(`Git Commit AI: ${(err as Error).message}`);
           return;
         }
 
-        const config = getConfig();
         const apiKey = await context.secrets.get(API_KEY_SECRET);
 
         let instruction: string | undefined;

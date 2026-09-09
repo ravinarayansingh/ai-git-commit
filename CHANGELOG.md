@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- New `gitCommitAI.diffScope` setting: `staged-and-unpushed` generates the message from your unpushed local commits **plus** the staged changes (diff against the upstream branch) — handy before amending or squashing. Default remains `staged`. Falls back to staged-only when the branch has no upstream or nothing is ahead
+
 ## 0.3.1
 
 - Generated messages now include an explanatory body (what changed and why, wrapped at 72 chars, bullets for multiple changes) instead of a single subject line; `maxTokens` default raised 200 → 600 to make room
