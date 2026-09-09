@@ -188,6 +188,6 @@ export function conventionInstruction(convention: Convention): string {
   return (
     `This project uses Conventional Commits (detected from ${convention.source}). ` +
     `Format the subject line as "type(optional-scope): description" using one of these types: ` +
-    `${convention.types.join(', ')}.`
+    `${convention.types.join(', ')}. Keep the explanatory body after the subject line.`
   );
 }

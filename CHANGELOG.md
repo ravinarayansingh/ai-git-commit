@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Generated messages now include an explanatory body (what changed and why, wrapped at 72 chars, bullets for multiple changes) instead of a single subject line; `maxTokens` default raised 200 → 600 to make room
+
 ## 0.3.0
 
 - **Commit convention detection**: projects using semantic-release, commitizen, commitlint, standard-version, release-please, or cocogitto (via `pyproject.toml`, `package.json`, commitlint configs, `.releaserc*`, `.versionrc*`, `cog.toml`, …) now get Conventional Commits messages with the project's allowed types; custom `type-enum` / `allowed_tags` lists are honored. Falls back to inferring the style from recent git history. Control with `gitCommitAI.commitStyle` (`auto` | `conventional` | `plain`)

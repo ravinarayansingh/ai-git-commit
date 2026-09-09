@@ -26,11 +26,16 @@ export function getConfig(): Config {
     commitStyle: cfg.get<CommitStyle>('commitStyle', 'auto'),
     apiUrl: cfg.get<string>('apiUrl', 'http://localhost:11434/v1').trim().replace(/\/+$/, ''),
     model: cfg.get<string>('model', 'gpt-oss:latest'),
-    maxTokens: cfg.get<number>('maxTokens', 200),
+    maxTokens: cfg.get<number>('maxTokens', 600),
     temperature: cfg.get<number>('temperature', 0.3),
     systemPrompt: cfg.get<string>(
       'systemPrompt',
-      'You are an expert developer. Given the following git diff of staged changes, write a concise, imperative commit message (max 72 chars for the subject line). Output only the commit message text, nothing else.\n\nDiff:\n{diff}'
+      'You are an expert developer. Given the following git diff of staged changes, write a complete git commit message:\n' +
+        '- Subject line: concise and imperative, max 72 characters.\n' +
+        '- Then a blank line, then a body that explains WHAT was changed and WHY, wrapped at 72 characters. Use short bullet points (- ) when there are multiple changes.\n' +
+        '- Explain intent and impact, not a mechanical restatement of the diff. Mention behavior changes, fixed problems, and reasons for the approach.\n' +
+        '- Skip the body only when the change is truly trivial (typo, formatting).\n' +
+        'Output only the commit message text, nothing else.\n\nDiff:\n{diff}'
     ),
   };
 }
