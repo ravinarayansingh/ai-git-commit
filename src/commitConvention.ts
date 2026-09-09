@@ -188,6 +188,9 @@ export function conventionInstruction(convention: Convention): string {
   return (
     `This project uses Conventional Commits (detected from ${convention.source}). ` +
     `Format the subject line as "type(optional-scope): description" using one of these types: ` +
-    `${convention.types.join(', ')}. Keep the explanatory body after the subject line.`
+    `${convention.types.join(', ')}. Pick the type of the most significant change: ` +
+    `feat or fix always outrank refactor/perf, which outrank docs/test/build/ci/chore/style — ` +
+    `never label a commit chore or style when it contains any functional code change. ` +
+    `Keep the explanatory body after the subject line.`
   );
 }

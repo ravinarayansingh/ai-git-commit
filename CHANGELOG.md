@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Mixed diffs now lead with the most significant change: a fix or new behavior outranks incidental chores (formatting, config, dependency tweaks) in the subject line and Conventional Commits type, regardless of diff order; chores are summarized in the body
+
 ## 0.4.0
 
 - New `gitCommitAI.diffScope` setting: `staged-and-unpushed` generates the message from your unpushed local commits **plus** the staged changes (diff against the upstream branch) — handy before amending or squashing. Default remains `staged`. Falls back to staged-only when the branch has no upstream or nothing is ahead

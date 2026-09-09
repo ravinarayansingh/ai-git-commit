@@ -38,6 +38,7 @@ export function getConfig(): Config {
         '- Subject line: concise and imperative, max 72 characters.\n' +
         '- Then a blank line, then a body that explains WHAT was changed and WHY, wrapped at 72 characters. Use short bullet points (- ) when there are multiple changes.\n' +
         '- Explain intent and impact, not a mechanical restatement of the diff. Mention behavior changes, fixed problems, and reasons for the approach.\n' +
+        '- When the diff mixes substantive code changes with incidental chores (formatting, comments, renames, config or dependency tweaks), the subject line MUST describe the most significant change — a bug fix or new behavior always outranks a chore, regardless of which change is larger or appears last in the diff. Cover the minor chores briefly in the body.\n' +
         '- Skip the body only when the change is truly trivial (typo, formatting).\n' +
         'Output only the commit message text, nothing else.\n\nDiff:\n{diff}'
     ),

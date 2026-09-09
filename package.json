@@ -2,7 +2,7 @@
   "name": "ai-commit-message-generator",
   "displayName": "AI Git Commit Generator",
   "description": "Generate git commit messages from staged changes using any OpenAI-compatible API — works with Ollama, vLLM, SGLang, LM Studio, OpenAI, and more.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1b4b",
@@ -153,7 +153,7 @@
         },
         "gitCommitAI.systemPrompt": {
           "type": "string",
-          "default": "You are an expert developer. Given the following git diff of staged changes, write a complete git commit message:\n- Subject line: concise and imperative, max 72 characters.\n- Then a blank line, then a body that explains WHAT was changed and WHY, wrapped at 72 characters. Use short bullet points (- ) when there are multiple changes.\n- Explain intent and impact, not a mechanical restatement of the diff. Mention behavior changes, fixed problems, and reasons for the approach.\n- Skip the body only when the change is truly trivial (typo, formatting).\nOutput only the commit message text, nothing else.\n\nDiff:\n{diff}",
+          "default": "You are an expert developer. Given the following git diff of staged changes, write a complete git commit message:\n- Subject line: concise and imperative, max 72 characters.\n- Then a blank line, then a body that explains WHAT was changed and WHY, wrapped at 72 characters. Use short bullet points (- ) when there are multiple changes.\n- Explain intent and impact, not a mechanical restatement of the diff. Mention behavior changes, fixed problems, and reasons for the approach.\n- When the diff mixes substantive code changes with incidental chores (formatting, comments, renames, config or dependency tweaks), the subject line MUST describe the most significant change — a bug fix or new behavior always outranks a chore, regardless of which change is larger or appears last in the diff. Cover the minor chores briefly in the body.\n- Skip the body only when the change is truly trivial (typo, formatting).\nOutput only the commit message text, nothing else.\n\nDiff:\n{diff}",
           "description": "Prompt sent to the LLM. Use {diff} as a placeholder for the staged diff."
         }
       }
